@@ -7,34 +7,24 @@ import { Container, Typography, Box, Button } from '@mui/material';
 import axios from 'axios';
 import Login from './components/Login';
 
-// Configure axios defaults
+// Configure axios defaults BEFORE the component
 axios.defaults.baseURL = 'http://127.0.0.1:8000';
 axios.defaults.withCredentials = true;
 
 function App() {
   const [events, setEvents] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user is already logged in
+  // Only check for existing token on mount
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  // Load events when logged in
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchEvents();
-    }
-  }, [isLoggedIn]);
-
-  const checkAuthStatus = async () => {
-    try {
-      await axios.get('/api/events/');
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
       setIsLoggedIn(true);
-    } catch (error) {
-      setIsLoggedIn(false);
     }
-  };
+    setIsLoading(false);
+  }, []);
 
   const fetchEvents = async () => {
     try {
@@ -51,6 +41,10 @@ function App() {
       setEvents(formattedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
+      // If fetch fails, token is invalid
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+      setIsLoggedIn(false);
     }
   };
 
@@ -71,24 +65,28 @@ function App() {
       } catch (error) {
         console.error('Error creating event:', error);
         alert('Error creating event. Please try logging in again.');
+        localStorage.removeItem('token');
+        delete axios.defaults.headers.common['Authorization'];
         setIsLoggedIn(false);
       }
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await axios.post('/api-auth/logout/');
-      setIsLoggedIn(false);
-      setEvents([]);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+    setIsLoggedIn(false);
+    setEvents([]);
   };
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
   };
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   // Show login component if not logged in
   if (!isLoggedIn) {
@@ -101,9 +99,14 @@ function App() {
         <Typography variant="h4" component="h1">
           My Scheduler
         </Typography>
-        <Button variant="outlined" onClick={handleLogout}>
-          Logout
-        </Button>
+        <Box>
+          <Button variant="contained" onClick={fetchEvents} sx={{ mr: 2 }}>
+            Load Events
+          </Button>
+          <Button variant="outlined" onClick={handleLogout}>
+            Logout
+          </Button>
+        </Box>
       </Box>
       
       <FullCalendar

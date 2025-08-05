@@ -26,24 +26,23 @@ const Login = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-
     try {
-      // Get CSRF token first
-      await axios.get('/admin/login/');
+      const response = await axios.post('/api/login/', {
+        username: credentials.username,
+        password: credentials.password
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       
-      // Attempt login
-      const response = await axios.post('/api-auth/login/', credentials);
-      
-      if (response.status === 200) {
-        onLoginSuccess();
-      }
+      const { token } = response.data;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+      onLoginSuccess();
     } catch (error) {
+      console.error('Login failed:', error.response?.data);
       setError('Invalid username or password');
-      console.error('Login error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
